@@ -1,5 +1,7 @@
 from math import log10
 
+import numpy as np
+
 
 def get_AtomDist(prec=1e-4):
     assert prec > 0.
@@ -29,7 +31,7 @@ def handle_rows(atoms, dist_mat, row_inds):
     ----------
     atoms : iterable of strings
         Iterable containing the atom types.
-    dist_mat : np.array, (atoms.size, atoms.size)
+    dist_mat : np.ndarray, (atoms.size, atoms.size)
         Distance matrix.
     row_inds : list
         Row indices, with all rows belonging to the same atom type.
@@ -82,7 +84,7 @@ def find_se_atoms(atoms, dist_mat):
     ----------
     atoms : iterable of strings
         Iterable containing the atom types.
-    dist_mat : np.array, (atoms.size, atoms.size)
+    dist_mat : np.ndarray, (atoms.size, atoms.size)
         Distance matrix.
 
     Returns
@@ -105,3 +107,63 @@ def find_se_atoms(atoms, dist_mat):
             f"{atom}{i}": inds for i, inds in enumerate(per_atom)
         })
     return se_atoms
+
+
+def center_of_mass(coords3d, masses):
+    """Center of mass for given coordinates and masses.
+
+    Parameters
+    ---------
+    coords3d : np.ndarray, shape (number of atoms, 3)
+        Cartesian coordinates.
+    masses : np.ndarray, shape (number of atoms, )
+        Atomic masses.
+
+    Returns
+    -------
+    center_of_mass : np.ndarray, shape (3, )
+        Center of mass coordinates.
+    """
+    total_mass = np.sum(masses)
+    return 1/total_mass * np.sum(coords3d*masses[:, None], axis=0)
+
+
+def inertia_tensor(coords3d, masses):
+    """Inertia tensor for given coordinates and masses.
+
+
+                          | x² xy xz |
+    (x y z)^T . (x y z) = | xy y² yz |
+                          | xz yz z² |
+
+    Parameters
+    ----------
+    coords3d : np.ndarray, shape (number of atoms, 3)
+        Cartesian coordinates.
+    masses : np.ndarray, shape (number of atoms, )
+        Atomic masses.
+
+    Returns
+    -------
+    I : np.ndarray, shape (3, 3)
+        Inertia tensor.
+    """
+
+    x, y, z = coords3d.T
+    squares = np.sum(coords3d**2 * masses[:, None], axis=0)
+    I_xx = squares[1] + squares[2]
+    I_yy = squares[0] + squares[2]
+    I_zz = squares[0] + squares[1]
+    I_xy = -np.sum(masses*x*y)
+    I_xz = -np.sum(masses*x*z)
+    I_yz = -np.sum(masses*y*z)
+    I = np.array((
+            (I_xx, I_xy, I_xz),
+            (I_xy, I_yy, I_yz),
+            (I_xz, I_yz, I_zz)
+    ))
+    return I
+
+
+def find_proper_rotations():
+    pass
