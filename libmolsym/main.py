@@ -1,6 +1,9 @@
-from math import log10
+from math import isclose, log10
 
+from pysisyphus.elem_data import MASS_DICT
 import numpy as np
+
+from libmolsym.Arrangement import Arrangement
 
 
 def get_AtomDist(prec=1e-4):
@@ -109,6 +112,10 @@ def find_se_atoms(atoms, dist_mat):
     return se_atoms
 
 
+def get_mass(atom):
+    return MASS_DICT[atom.lower()]
+
+
 def center_of_mass(coords3d, masses):
     """Center of mass for given coordinates and masses.
 
@@ -126,6 +133,22 @@ def center_of_mass(coords3d, masses):
     """
     total_mass = np.sum(masses)
     return 1/total_mass * np.sum(coords3d*masses[:, None], axis=0)
+
+
+def centroid(coords3d):
+    """Geometric average of given coordinates.
+
+    Parameters
+    ----------
+    coords3d : np.ndarray, shape (number of atoms, 3)
+        Cartesian coordinates.
+
+    Returns
+    -------
+    centroid : np.ndarray, shape (3, )
+        Geometric average (centroid) of given coordinates.
+    """
+    return np.mean(coords3d, axis=0)
 
 
 def inertia_tensor(coords3d, masses):
@@ -165,5 +188,34 @@ def inertia_tensor(coords3d, masses):
     return I
 
 
-def find_proper_rotations():
-    pass
+def diagonalized_inertia_tensor(coords3d, masses):
+    I = inertia_tensor(coords3d, masses)
+    return np.linalg.eigh(I)
+
+
+def get_arrangement(principal_moments, prec=1e-6):
+    Ia, Ib, Ic = principal_moments
+
+    if np.allclose(principal_moments, (0., 0., 0.), atol=prec):
+        arr = Arrangement.SINGLE_ATOM
+    elif isclose(Ia, 0., abs_tol=prec) and isclose(Ib, Ic, abs_tol=prec):
+        arr = Arrangement.LINEAR
+    elif isclose(Ia + Ib, Ic, abs_tol=prec):
+        if isclose(Ia, Ib, abs_tol=prec):
+            arr = Arrangement.REGULAR_POLYGON
+        # elif not isclose(Ia, Ib, abs_tol=prec):
+        else:
+            arr = Arrangement.IRREGULAR_POLYGON
+    else:
+        if (Ia < Ib) and isclose(Ib, Ic, abs_tol=prec):
+            arr = Arrangement.PROLATE_SYMMETRIC_TOP
+        elif isclose(Ia, Ib, abs_tol=prec) and Ib < Ic:
+            arr = Arrangement.OBLATE_SYMMETRIC_TOP
+    return arr
+
+
+def find_proper_rotations(coords3d, masses, se_atoms):
+    se_coords3d = coords3d[se_atoms]
+    se_masses = masses[se_atoms]
+    pms, pas = diagonalized_inertia_tensor(se_coords3d, se_masses)
+    print(pms)
